@@ -44,9 +44,10 @@ Thumbs.db
 # Temporary / backup development files
 *.backup.*
 *.before-*.py
+*.before-*.tsx
 *.bak
 *.tmp
 
-# Local caches / models
+# Local caches / downloaded models
 .cache/
-models/
+/models/
