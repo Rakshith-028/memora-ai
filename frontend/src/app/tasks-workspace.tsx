@@ -127,77 +127,56 @@ export default function TasksWorkspace() {
   const [form, setForm] =
     useState<TaskFormState>(initialForm);
 
-  const loadTasks = useCallback(
-    async (isRefresh = false) => {
-      try {
-        if (isRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
+  const fetchTasks = useCallback(
+    async (): Promise<TaskItem[] | null> => {
+      const params =
+        new URLSearchParams();
 
-        setError("");
-
-        const params =
-          new URLSearchParams();
-
-        if (statusFilter !== "all") {
-          params.set(
-            "status",
-            statusFilter
-          );
-        }
-
-        if (priorityFilter !== "all") {
-          params.set(
-            "priority",
-            priorityFilter
-          );
-        }
-
-        const response = await fetch(
-          `/api/tasks${
-            params.toString()
-              ? `?${params.toString()}`
-              : ""
-          }`,
-          {
-            method: "GET",
-            cache: "no-store",
-          }
+      if (statusFilter !== "all") {
+        params.set(
+          "status",
+          statusFilter
         );
+      }
 
-        if (response.status === 401) {
-          router.replace("/login");
-          return;
-        }
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            typeof data?.detail === "string"
-              ? data.detail
-              : "Unable to load tasks."
-          );
-        }
-
-        setTasks(
-          Array.isArray(data)
-            ? data
-            : []
+      if (priorityFilter !== "all") {
+        params.set(
+          "priority",
+          priorityFilter
         );
-      } catch (caughtError) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
+      }
+
+      const response = await fetch(
+        `/api/tasks${
+          params.toString()
+            ? `?${params.toString()}`
+            : ""
+        }`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      if (response.status === 401) {
+        router.replace("/login");
+        return null;
+      }
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.detail === "string"
+            ? data.detail
             : "Unable to load tasks."
         );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
       }
+
+      return Array.isArray(data)
+        ? data
+        : [];
     },
     [
       priorityFilter,
@@ -207,8 +186,70 @@ export default function TasksWorkspace() {
   );
 
   useEffect(() => {
-    void loadTasks();
-  }, [loadTasks]);
+    let active = true;
+
+    async function loadVisibleTasks() {
+      try {
+        const data =
+          await fetchTasks();
+
+        if (
+          !active ||
+          data === null
+        ) {
+          return;
+        }
+
+        setTasks(data);
+        setError("");
+      } catch (caughtError) {
+        if (!active) {
+          return;
+        }
+
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load tasks."
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadVisibleTasks();
+
+    return () => {
+      active = false;
+    };
+  }, [fetchTasks]);
+
+  const refreshTasks = useCallback(
+    async () => {
+      setRefreshing(true);
+      setError("");
+
+      try {
+        const data =
+          await fetchTasks();
+
+        if (data !== null) {
+          setTasks(data);
+        }
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load tasks."
+        );
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [fetchTasks]
+  );
 
   function setTaskSaving(
     taskId: string,
@@ -292,7 +333,7 @@ export default function TasksWorkspace() {
 
       setForm(initialForm);
 
-      await loadTasks(true);
+      await refreshTasks();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -529,7 +570,7 @@ export default function TasksWorkspace() {
             <button
               type="button"
               onClick={() =>
-                void loadTasks(true)
+                void refreshTasks()
               }
               disabled={
                 loading ||

@@ -14,13 +14,13 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 
 type AnalyticsOverview = {
   total_conversations: number;
@@ -68,20 +68,80 @@ export default function AnalyticsWorkspace() {
   const [error, setError] =
     useState("");
 
-  const loadAnalytics =
+  useEffect(() => {
+    let active = true;
+
+    async function loadInitialAnalytics() {
+      try {
+        const response =
+          await fetch(
+            "/api/analytics/overview",
+            {
+              method: "GET",
+              cache: "no-store",
+            }
+          );
+
+        if (
+          response.status === 401
+        ) {
+          router.replace(
+            "/login"
+          );
+
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            typeof data?.detail ===
+              "string"
+              ? data.detail
+              : "Unable to load analytics."
+          );
+        }
+
+        if (!active) {
+          return;
+        }
+
+        setOverview(
+          data as AnalyticsOverview
+        );
+      } catch (caughtError) {
+        if (!active) {
+          return;
+        }
+
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Unable to load analytics."
+        );
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialAnalytics();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  const refreshAnalytics =
     useCallback(
-      async (
-        isRefresh = false
-      ) => {
+      async () => {
+        setRefreshing(true);
+        setError("");
+
         try {
-          if (isRefresh) {
-            setRefreshing(true);
-          } else {
-            setLoading(true);
-          }
-
-          setError("");
-
           const response =
             await fetch(
               "/api/analytics/overview",
@@ -123,16 +183,11 @@ export default function AnalyticsWorkspace() {
               : "Unable to load analytics."
           );
         } finally {
-          setLoading(false);
           setRefreshing(false);
         }
       },
       [router]
     );
-
-  useEffect(() => {
-    void loadAnalytics();
-  }, [loadAnalytics]);
 
   const derived = useMemo(
     () => {
@@ -157,11 +212,13 @@ export default function AnalyticsWorkspace() {
             ? overview.total_messages /
               conversations
             : 0,
+
         memoriesPerConversation:
           conversations > 0
             ? overview.active_memories /
               conversations
             : 0,
+
         positivePercent:
           feedbackTotal > 0
             ? (
@@ -169,6 +226,7 @@ export default function AnalyticsWorkspace() {
                 feedbackTotal
               ) * 100
             : 0,
+
         negativePercent:
           feedbackTotal > 0
             ? (
@@ -281,7 +339,8 @@ export default function AnalyticsWorkspace() {
                   {" "}
                   intelligence layer
                 </span>
-                {" "}is growing.
+                {" "}
+                is growing.
               </h2>
 
               <p className="mt-3 max-w-[760px] text-[13px] leading-6 text-white/38">
@@ -293,9 +352,7 @@ export default function AnalyticsWorkspace() {
             <button
               type="button"
               onClick={() =>
-                void loadAnalytics(
-                  true
-                )
+                void refreshAnalytics()
               }
               disabled={
                 loading ||
@@ -436,6 +493,7 @@ export default function AnalyticsWorkspace() {
                                 `${derived.positivePercent}%`,
                             }}
                           />
+
                           <span
                             className="h-full bg-rose-300/45"
                             style={{

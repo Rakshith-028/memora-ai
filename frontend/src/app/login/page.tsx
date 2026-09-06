@@ -11,13 +11,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
+import { useRouter } from "next/navigation";
 import {
   FormEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 
 type GoogleCredentialResponse = {
   credential?: string;
@@ -31,6 +32,7 @@ type GoogleAccounts = {
         response: GoogleCredentialResponse
       ) => void;
     }) => void;
+
     renderButton: (
       element: HTMLElement,
       options: {
@@ -65,8 +67,10 @@ export default function LoginPage() {
       null
     );
 
-  const [googleReady, setGoogleReady] =
-    useState(false);
+  const [
+    googleReady,
+    setGoogleReady,
+  ] = useState(false);
 
   const [
     googleLoading,
@@ -90,61 +94,67 @@ export default function LoginPage() {
   const [error, setError] =
     useState("");
 
-  async function handleGoogleCredential(
-    response: GoogleCredentialResponse
-  ) {
-    const credential =
-      response.credential;
+  const handleGoogleCredential =
+    useCallback(
+      async (
+        response: GoogleCredentialResponse
+      ) => {
+        const credential =
+          response.credential;
 
-    if (!credential) {
-      setError(
-        "Google did not return a valid credential."
-      );
-      return;
-    }
+        if (!credential) {
+          setError(
+            "Google did not return a valid credential."
+          );
 
-    setGoogleLoading(true);
-    setError("");
+          return;
+        }
 
-    try {
-      const authResponse =
-        await fetch(
-          "/api/auth/google",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              credential,
-            }),
+        setGoogleLoading(true);
+        setError("");
+
+        try {
+          const authResponse =
+            await fetch(
+              "/api/auth/google",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  credential,
+                }),
+              }
+            );
+
+          const data =
+            await authResponse.json();
+
+          if (!authResponse.ok) {
+            setError(
+              typeof data?.detail ===
+                "string"
+                ? data.detail
+                : "Unable to sign in with Google."
+            );
+
+            return;
           }
-        );
 
-      const data =
-        await authResponse.json();
-
-      if (!authResponse.ok) {
-        setError(
-          typeof data?.detail ===
-            "string"
-            ? data.detail
-            : "Unable to sign in with Google."
-        );
-        return;
-      }
-
-      router.push("/");
-      router.refresh();
-    } catch {
-      setError(
-        "Unable to connect to Memora."
-      );
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
+          router.push("/");
+          router.refresh();
+        } catch {
+          setError(
+            "Unable to connect to Memora."
+          );
+        } finally {
+          setGoogleLoading(false);
+        }
+      },
+      [router]
+    );
 
   useEffect(() => {
     if (
@@ -185,7 +195,10 @@ export default function LoginPage() {
         shape: "rectangular",
       }
     );
-  }, [googleReady]);
+  }, [
+    googleReady,
+    handleGoogleCredential,
+  ]);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -396,9 +409,11 @@ export default function LoginPage() {
 
                 <div className="my-5 flex items-center gap-3">
                   <div className="h-px flex-1 bg-white/[0.07]" />
+
                   <span className="text-[9px] uppercase tracking-[0.14em] text-white/20">
                     or continue with email
                   </span>
+
                   <div className="h-px flex-1 bg-white/[0.07]" />
                 </div>
               </div>
@@ -532,6 +547,7 @@ export default function LoginPage() {
 
               <div className="mt-6 text-center text-[11px] text-white/30">
                 New to Memora?{" "}
+
                 <Link
                   href="/signup"
                   className="font-medium text-violet-300/70 transition hover:text-violet-200"

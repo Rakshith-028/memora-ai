@@ -11,7 +11,9 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -23,7 +25,16 @@ type VerificationState =
   | "success"
   | "error";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
+  const searchParams =
+    useSearchParams();
+
+  const token =
+    searchParams.get("token");
+
+  const emailParam =
+    searchParams.get("email") ?? "";
+
   const verificationStartedRef =
     useRef(false);
 
@@ -31,16 +42,18 @@ export default function VerifyEmailPage() {
     verificationState,
     setVerificationState,
   ] = useState<VerificationState>(
-    "waiting"
+    token ? "verifying" : "waiting"
   );
 
   const [message, setMessage] =
     useState(
-      "Check your inbox for the Memora verification link."
+      token
+        ? "Verifying your email address..."
+        : "Check your inbox for the Memora verification link."
     );
 
   const [email, setEmail] =
-    useState("");
+    useState(emailParam);
 
   const [resending, setResending] =
     useState(false);
@@ -51,21 +64,6 @@ export default function VerifyEmailPage() {
   ] = useState("");
 
   useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    const token =
-      params.get("token");
-
-    const emailParam =
-      params.get("email");
-
-    if (emailParam) {
-      setEmail(emailParam);
-    }
-
     if (!token) {
       return;
     }
@@ -80,14 +78,6 @@ export default function VerifyEmailPage() {
       true;
 
     async function verify() {
-      setVerificationState(
-        "verifying"
-      );
-
-      setMessage(
-        "Verifying your email address..."
-      );
-
       try {
         const response =
           await fetch(
@@ -141,7 +131,7 @@ export default function VerifyEmailPage() {
     }
 
     void verify();
-  }, []);
+  }, [token]);
 
   async function resendVerification() {
     if (
@@ -372,5 +362,28 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function VerifyEmailFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#07080b] text-white">
+      <LoaderCircle
+        size={24}
+        className="animate-spin text-violet-300/70"
+      />
+    </main>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <VerifyEmailFallback />
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

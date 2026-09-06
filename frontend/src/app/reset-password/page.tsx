@@ -11,14 +11,10 @@ import {
 import Link from "next/link";
 import {
   FormEvent,
-  useEffect,
   useState,
 } from "react";
 
 export default function ResetPasswordPage() {
-  const [token, setToken] =
-    useState("");
-
   const [password, setPassword] =
     useState("");
 
@@ -41,23 +37,20 @@ export default function ResetPasswordPage() {
   const [error, setError] =
     useState("");
 
-  useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    setToken(
-      params.get("token") ?? ""
-    );
-  }, []);
-
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
     setError("");
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const token =
+      params.get("token") ?? "";
 
     if (!token) {
       setError(
