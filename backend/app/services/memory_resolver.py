@@ -1,10 +1,6 @@
 import json
 
-import httpx
-
-
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "llama3.2:3b"
+from app.services.llm import llm_service
 
 
 class MemoryResolver:
@@ -337,39 +333,21 @@ Use exactly this structure:
             "Then classify the relationship."
         )
 
-        payload = {
-            "model": MODEL_NAME,
-            "stream": False,
-            "format": "json",
-            "options": {
-                "temperature": 0.0,
-            },
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                },
-            ],
-        }
-
-        async with httpx.AsyncClient(
-            timeout=120.0
-        ) as client:
-            response = await client.post(
-                OLLAMA_URL,
-                json=payload,
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
         try:
-            raw_content = data["message"]["content"]
+            raw_content = await llm_service.generate_reply(
+                [
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt,
+                    },
+                ],
+                temperature=0.0,
+                json_mode=True,
+            )
 
             result = json.loads(
                 raw_content

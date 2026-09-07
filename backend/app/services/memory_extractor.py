@@ -1,11 +1,7 @@
 import json
 import re
 
-import httpx
-
-
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "llama3.2:3b"
+from app.services.llm import llm_service
 
 
 class MemoryExtractor:
@@ -531,14 +527,8 @@ If nothing should be remembered, return:
 }
 """
 
-        payload = {
-            "model": MODEL_NAME,
-            "stream": False,
-            "format": "json",
-            "options": {
-                "temperature": 0.0,
-            },
-            "messages": [
+        content = await llm_service.generate_reply(
+            [
                 {
                     "role": "system",
                     "content": system_prompt,
@@ -548,25 +538,9 @@ If nothing should be remembered, return:
                     "content": user_message,
                 },
             ],
-        }
-
-        async with httpx.AsyncClient(
-            timeout=120.0
-        ) as client:
-            response = await client.post(
-                OLLAMA_URL,
-                json=payload,
-            )
-
-            response.raise_for_status()
-
-            result = response.json()
-
-            content = result[
-                "message"
-            ][
-                "content"
-            ]
+            temperature=0.0,
+            json_mode=True,
+        )
 
         try:
             parsed = json.loads(
